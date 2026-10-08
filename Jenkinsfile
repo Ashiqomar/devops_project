@@ -3,15 +3,10 @@ pipeline {
 
     environment {
         IMAGE = 'ghcr.io/ashiqomar/devops_project:latest'
-
         TERRAFORM = 'C:\\Users\\Ashiq\\AppData\\Local\\Microsoft\\WinGet\\Links\\terraform.exe'
     }
 
     stages {
-
-        // -------------------------
-        // Build Docker Image
-        // -------------------------
 
         stage('Build') {
             steps {
@@ -21,11 +16,6 @@ pipeline {
             }
         }
 
-
-        // -------------------------
-        // Test Docker Image
-        // -------------------------
-
         stage('Test') {
             steps {
                 echo 'Testing Docker image...'
@@ -34,19 +24,16 @@ pipeline {
             }
         }
 
-
-        // -------------------------
-        // Push Image to GHCR
-        // -------------------------
-
         stage('Push to GHCR') {
             steps {
 
-                withCredentials([usernamePassword(
-                    credentialsId: 'github-ghcr',
-                    usernameVariable: 'GHCR_USER',
-                    passwordVariable: 'GHCR_TOKEN'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github-ghcr',
+                        usernameVariable: 'GHCR_USER',
+                        passwordVariable: 'GHCR_TOKEN'
+                    )
+                ]) {
 
                     bat '''
                     echo %GHCR_TOKEN% | docker login ghcr.io -u %GHCR_USER% --password-stdin
@@ -57,19 +44,16 @@ pipeline {
             }
         }
 
-
-        // -------------------------
-        // Terraform Init
-        // -------------------------
-
         stage('Terraform Init') {
             steps {
 
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-terraform',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
 
                     dir('terraform') {
 
@@ -78,11 +62,6 @@ pipeline {
                 }
             }
         }
-
-
-        // -------------------------
-        // Terraform Validate
-        // -------------------------
 
         stage('Terraform Validate') {
             steps {
@@ -94,19 +73,16 @@ pipeline {
             }
         }
 
-
-        // -------------------------
-        // Terraform Plan
-        // -------------------------
-
         stage('Terraform Plan') {
             steps {
 
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-terraform',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
 
                     dir('terraform') {
 
@@ -115,16 +91,30 @@ pipeline {
                 }
             }
         }
+
+        stage('Terraform Apply') {
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+
+                    dir('terraform') {
+
+                        bat '"%TERRAFORM%" apply -auto-approve'
+                    }
+                }
+            }
+        }
     }
 
-
-    // -------------------------
-    // Cleanup
-    // -------------------------
-
     post {
-        always {
 
+        always {
             bat 'docker logout ghcr.io'
         }
     }
