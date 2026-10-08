@@ -109,7 +109,7 @@ pipeline {
 
                         icacls "%SSH_KEY%" /inheritance:r
                         icacls "%SSH_KEY%" /remove "BUILTIN\\Users"
-                        icacls "%SSH_KEY%" /grant:r "%USERNAME%:R"
+                        icacls "%SSH_KEY%" /grant:r "SYSTEM:R"
 
                         ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@%EC2_IP% "sudo docker pull %IMAGE% && sudo docker stop simple-devops || true && sudo docker rm simple-devops || true && sudo docker run -d --name simple-devops --restart unless-stopped -p 80:80 %IMAGE%"
                         '''
