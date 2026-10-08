@@ -26,7 +26,6 @@ pipeline {
 
         stage('Push to GHCR') {
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'github-ghcr',
@@ -34,7 +33,6 @@ pipeline {
                         passwordVariable: 'GHCR_TOKEN'
                     )
                 ]) {
-
                     bat '''
                     echo %GHCR_TOKEN% | docker login ghcr.io -u %GHCR_USER% --password-stdin
                     docker tag simple-devops %IMAGE%
@@ -46,17 +44,11 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-terraform',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-terraform']
                 ]) {
-
                     dir('terraform') {
-
                         bat '"%TERRAFORM%" init'
                     }
                 }
@@ -65,27 +57,24 @@ pipeline {
 
         stage('Terraform Validate') {
             steps {
-
-                dir('terraform') {
-
-                    bat '"%TERRAFORM%" validate'
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-terraform']
+                ]) {
+                    dir('terraform') {
+                        bat '"%TERRAFORM%" validate'
+                    }
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-terraform',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-terraform']
                 ]) {
-
                     dir('terraform') {
-
                         bat '"%TERRAFORM%" plan'
                     }
                 }
@@ -94,17 +83,11 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-terraform',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-terraform']
                 ]) {
-
                     dir('terraform') {
-
                         bat '"%TERRAFORM%" apply -auto-approve'
                     }
                 }
@@ -113,7 +96,6 @@ pipeline {
     }
 
     post {
-
         always {
             bat 'docker logout ghcr.io'
         }
