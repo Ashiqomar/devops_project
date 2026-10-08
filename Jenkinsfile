@@ -1,125 +1,21 @@
-pipeline {
-    agent any
+stage('Deploy to EC2') {
+    steps {
+        withCredentials([
+            sshUserPrivateKey(
+                credentialsId: 'ec2-ssh',
+                keyFileVariable: 'SSH_KEY',
+                usernameVariable: 'SSH_USER'
+            )
+        ]) {
+            dir('terraform') {
+                bat '''
+                for /f "delims=" %%i in ('"%TERRAFORM%" output -raw ec2_public_ip') do set "EC2_IP=%%i"
 
-    environment {
-        IMAGE = 'ghcr.io/ashiqomar/devops_project:latest'
-        TERRAFORM = 'C:\\Users\\Ashiq\\AppData\\Local\\Microsoft\\WinGet\\Links\\terraform.exe'
-    }
+                echo Deploying to EC2: %EC2_IP%
 
-    stages {
-
-        stage('Build') {
-            steps {
-                echo 'Building Docker image...'
-
-                bat 'docker build -t simple-devops .'
+                ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@%EC2_IP% "sudo docker pull %IMAGE% && sudo docker stop simple-devops || true && sudo docker rm simple-devops || true && sudo docker run -d --name simple-devops --restart unless-stopped -p 80:80 %IMAGE%"
+                '''
             }
-        }
-
-        stage('Test') {
-            steps {
-                echo 'Testing Docker image...'
-
-                bat 'docker images simple-devops'
-            }
-        }
-
-        stage('Push to GHCR') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'github-ghcr',
-                        usernameVariable: 'GHCR_USER',
-                        passwordVariable: 'GHCR_TOKEN'
-                    )
-                ]) {
-                    bat '''
-                    echo %GHCR_TOKEN% | docker login ghcr.io -u %GHCR_USER% --password-stdin
-                    docker tag simple-devops %IMAGE%
-                    docker push %IMAGE%
-                    '''
-                }
-            }
-        }
-
-        stage('Terraform Init') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-terraform']
-                ]) {
-                    dir('terraform') {
-                        bat '"%TERRAFORM%" init'
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-terraform']
-                ]) {
-                    dir('terraform') {
-                        bat '"%TERRAFORM%" validate'
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Plan') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-terraform']
-                ]) {
-                    dir('terraform') {
-                        bat '"%TERRAFORM%" plan'
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-terraform']
-                ]) {
-                    dir('terraform') {
-                        bat '"%TERRAFORM%" apply -auto-approve'
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to EC2') {
-            steps {
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: 'ec2-ssh',
-                        keyFileVariable: 'SSH_KEY',
-                        usernameVariable: 'SSH_USER'
-                    )
-                ]) {
-                    dir('terraform') {
-                        bat '''
-                        for /f "delims=" %%i in ('"%TERRAFORM%" output -raw ec2_public_ip') do set "EC2_IP=%%i"
-
-                        echo Deploying to EC2: %EC2_IP%
-
-                        ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@%EC2_IP% "sudo docker pull %IMAGE% && sudo docker stop simple-devops || true && sudo docker rm simple-devops || true && sudo docker run -d --name simple-devops --restart unless-stopped -p 80:80 %IMAGE%"
-                        '''
-                    }
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            bat 'docker logout ghcr.io'
         }
     }
 }
