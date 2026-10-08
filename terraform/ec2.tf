@@ -18,7 +18,6 @@ resource "aws_internet_gateway" "main" {
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
 
   tags = {
@@ -79,6 +78,16 @@ resource "aws_instance" "web" {
               systemctl start docker
 
               usermod -aG docker ec2-user
+
+              sleep 10
+
+              docker pull ghcr.io/ashiqomar/devops_project:latest
+
+              docker run -d \
+                --name simple-devops \
+                --restart unless-stopped \
+                -p 80:80 \
+                ghcr.io/ashiqomar/devops_project:latest
               EOF
 
   tags = {
