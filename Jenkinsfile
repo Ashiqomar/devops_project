@@ -36,6 +36,42 @@ pipeline {
                 }
             }
         }
+
+        stage('Terraform Init') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'aws-terraform',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                )]) {
+                    dir('terraform') {
+                        bat 'terraform init'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                dir('terraform') {
+                    bat 'terraform validate'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'aws-terraform',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                )]) {
+                    dir('terraform') {
+                        bat 'terraform plan'
+                    }
+                }
+            }
+        }
     }
 
     post {
