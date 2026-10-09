@@ -1,6 +1,3 @@
-# -------------------------
-# Internet Gateway
-# -------------------------
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
@@ -9,12 +6,6 @@ resource "aws_internet_gateway" "main" {
     Name = "devops-igw"
   }
 }
-
-
-# -------------------------
-# Public Subnet
-# -------------------------
-
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -24,12 +15,6 @@ resource "aws_subnet" "public" {
     Name = "devops-public-subnet"
   }
 }
-
-
-# -------------------------
-# Route Table
-# -------------------------
-
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -42,22 +27,10 @@ resource "aws_route_table" "public" {
     Name = "devops-public-route-table"
   }
 }
-
-
-# -------------------------
-# Route Table Association
-# -------------------------
-
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
 }
-
-
-# -------------------------
-# EC2 Instance
-# -------------------------
-
 resource "aws_instance" "web" {
   ami           = "ami-0d27e0fb3bac4d724"
   instance_type = "t3.micro"
