@@ -18,7 +18,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo 'Testing Docker image...'
+                echo 'Checking Docker image...'
                 bat 'docker images simple-devops'
             }
         }
@@ -51,13 +51,7 @@ pipeline {
                      credentialsId: 'aws-terraform']
                 ]) {
                     dir('terraform') {
-                        bat '''
-                        "%TERRAFORM%" init
-                        if errorlevel 1 exit /b 1
-
-                        "%TERRAFORM%" workspace new build-%BUILD_NUMBER%
-                        if errorlevel 1 exit /b 1
-                        '''
+                        bat '"%TERRAFORM%" init'
                     }
                 }
             }
@@ -83,10 +77,7 @@ pipeline {
                      credentialsId: 'aws-terraform']
                 ]) {
                     dir('terraform') {
-                        bat '''
-                        "%TERRAFORM%" plan -out=tfplan
-                        if errorlevel 1 exit /b 1
-                        '''
+                        bat '"%TERRAFORM%" plan'
                     }
                 }
             }
@@ -99,13 +90,13 @@ pipeline {
                      credentialsId: 'aws-terraform']
                 ]) {
                     dir('terraform') {
-                        bat '"%TERRAFORM%" apply -auto-approve tfplan'
+                        bat '"%TERRAFORM%" apply -auto-approve'
                     }
                 }
             }
         }
 
-        stage('Deploy to EC2') {
+        stage('Deploy to Existing EC2') {
             steps {
                 withCredentials([
                     sshUserPrivateKey(
@@ -116,14 +107,11 @@ pipeline {
                 ]) {
                     dir('terraform') {
                         bat '''
-                        "%TERRAFORM%" workspace select build-%BUILD_NUMBER%
-                        if errorlevel 1 exit /b 1
-
                         for /f "delims=" %%i in ('"%TERRAFORM%" output -raw ec2_public_ip') do set "EC2_IP=%%i"
 
                         if not defined EC2_IP exit /b 1
 
-                        echo Deploying to EC2: %EC2_IP%
+                        echo Deploying latest image to existing EC2: %EC2_IP%
 
                         icacls "%SSH_KEY%" /inheritance:r
                         icacls "%SSH_KEY%" /remove "BUILTIN\\Users"
@@ -132,7 +120,8 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@%EC2_IP% "sudo dnf install -y docker && sudo systemctl enable docker && sudo systemctl start docker && sudo docker pull %IMAGE% && (sudo docker stop simple-devops 2>/dev/null || true) && (sudo docker rm simple-devops 2>/dev/null || true) && sudo docker run -d --name simple-devops --restart unless-stopped -p 80:80 %IMAGE%"
                         if errorlevel 1 exit /b 1
 
-                        echo Website URL: http://%EC2_IP%
+                        echo Deployment completed!
+                        echo Website: http://%EC2_IP%
                         '''
                     }
                 }
