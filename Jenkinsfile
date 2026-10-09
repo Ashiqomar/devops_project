@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -33,8 +34,11 @@ pipeline {
                 ]) {
                     bat '''
                     echo %GHCR_TOKEN% | docker login ghcr.io -u %GHCR_USER% --password-stdin
+                    if errorlevel 1 exit /b 1
+
                     docker tag simple-devops %IMAGE%
                     docker push %IMAGE%
+                    if errorlevel 1 exit /b 1
                     '''
                 }
             }
@@ -47,7 +51,13 @@ pipeline {
                      credentialsId: 'aws-terraform']
                 ]) {
                     dir('terraform') {
-                        bat '"%TERRAFORM%" init'
+                        bat '''
+                        "%TERRAFORM%" init
+                        if errorlevel 1 exit /b 1
+
+                        "%TERRAFORM%" workspace new build-%BUILD_NUMBER%
+                        if errorlevel 1 exit /b 1
+                        '''
                     }
                 }
             }
@@ -73,7 +83,10 @@ pipeline {
                      credentialsId: 'aws-terraform']
                 ]) {
                     dir('terraform') {
-                        bat '"%TERRAFORM%" plan'
+                        bat '''
+                        "%TERRAFORM%" plan -out=tfplan
+                        if errorlevel 1 exit /b 1
+                        '''
                     }
                 }
             }
@@ -86,7 +99,7 @@ pipeline {
                      credentialsId: 'aws-terraform']
                 ]) {
                     dir('terraform') {
-                        bat '"%TERRAFORM%" apply -auto-approve'
+                        bat '"%TERRAFORM%" apply -auto-approve tfplan'
                     }
                 }
             }
@@ -103,7 +116,12 @@ pipeline {
                 ]) {
                     dir('terraform') {
                         bat '''
+                        "%TERRAFORM%" workspace select build-%BUILD_NUMBER%
+                        if errorlevel 1 exit /b 1
+
                         for /f "delims=" %%i in ('"%TERRAFORM%" output -raw ec2_public_ip') do set "EC2_IP=%%i"
+
+                        if not defined EC2_IP exit /b 1
 
                         echo Deploying to EC2: %EC2_IP%
 
@@ -111,7 +129,10 @@ pipeline {
                         icacls "%SSH_KEY%" /remove "BUILTIN\\Users"
                         icacls "%SSH_KEY%" /grant:r "SYSTEM:R"
 
-                        ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@%EC2_IP% "sudo dnf install -y docker && sudo systemctl enable docker && sudo systemctl start docker && sudo docker pull %IMAGE% && sudo docker stop simple-devops || true && sudo docker rm simple-devops || true && sudo docker run -d --name simple-devops --restart unless-stopped -p 80:80 %IMAGE%"
+                        ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@%EC2_IP% "sudo dnf install -y docker && sudo systemctl enable docker && sudo systemctl start docker && sudo docker pull %IMAGE% && (sudo docker stop simple-devops 2>/dev/null || true) && (sudo docker rm simple-devops 2>/dev/null || true) && sudo docker run -d --name simple-devops --restart unless-stopped -p 80:80 %IMAGE%"
+                        if errorlevel 1 exit /b 1
+
+                        echo Website URL: http://%EC2_IP%
                         '''
                     }
                 }
@@ -125,3 +146,4 @@ pipeline {
         }
     }
 }
+```
