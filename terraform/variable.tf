@@ -22,9 +22,8 @@ variable "ssh_cidr" {
   type        = string
   default     = "0.0.0.0/0"
 }
-
 variable "deployments" {
   description = "Deployment identifiers for EC2 instances"
   type        = list(string)
-  default = ["deployment-001", "deployment-002"]
-}
+  default     = ["deployment-002"]
+}}
