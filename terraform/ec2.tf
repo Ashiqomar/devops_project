@@ -1,70 +1,39 @@
 
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "devops-igw"
-  }
-}
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "devops-public-subnet"
-  }
-}
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "devops-public-route-table"
-  }
-}
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
-}
 resource "aws_instance" "web" {
-  ami           = "ami-0d27e0fb3bac4d724"
-  instance_type = "t3.micro"
-  key_name      = "demo"
+  for_each = toset(var.deployments)
 
-  subnet_id = aws_subnet.public.id
-
-  vpc_security_group_ids = [
-    aws_security_group.web.id
-  ]
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  key_name                    = var.key_pair
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.web.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
-              #!/bin/bash
+#!/bin/bash
+set -euxo pipefail
 
-              yum update -y
-              yum install -y docker
+exec > /var/log/user-data.log 2>&1
 
-              systemctl enable docker
-              systemctl start docker
+export DEBIAN_FRONTEND=noninteractive
 
-              usermod -aG docker ec2-user
+apt-get update -y
+apt-get install -y docker.io
 
-              sleep 10
+systemctl enable --now docker
 
-              docker pull ghcr.io/ashiqomar/devops_project:latest
+docker pull ghcr.io/ashiqomar/devops_project:latest
 
-              docker run -d \
-                --name simple-devops \
-                --restart unless-stopped \
-                -p 80:80 \
-                ghcr.io/ashiqomar/devops_project:latest
-              EOF
+docker run -d \
+  --name simple-devops \
+  --restart unless-stopped \
+  -p 80:80 \
+  ghcr.io/ashiqomar/devops_project:latest
+EOF
 
   tags = {
-    Name = "devops-ec2"
+    Name       = each.key == "deployment-001" ? "devops-ec2" : "devops-ec2-${each.key}"
+    Deployment = each.key
+    team       = "demo-sjce"
   }
 }
