@@ -26,4 +26,4 @@ variable "deployments" {
   description = "Deployment identifiers for EC2 instances"
   type        = list(string)
   default     = ["deployment-002"]
-}}
+}
