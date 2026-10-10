@@ -36,4 +36,8 @@ EOF
     Deployment = each.key
     team       = "demo-sjce"
   }
+
+  lifecycle {
+    ignore_changes = [user_data]
+  }
 }
